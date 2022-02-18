@@ -20,6 +20,10 @@ public class CommandHeadDB implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String s, String[] args) {
         Localization localization = HeadDB.getInstance().getLocalization();
+        if (HeadAPI.getHeads().size() == 0) {
+            Utils.sendMessage(sender, localization.getMessage("notLoaded"));
+            return true;
+        }
         if (args.length == 0) {
             if (!sender.hasPermission("headdb.open")) {
                 Utils.sendMessage(sender, localization.getMessage("noPermission"));
