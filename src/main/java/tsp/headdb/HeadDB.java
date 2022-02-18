@@ -6,6 +6,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import tsp.headdb.api.HeadAPI;
 import tsp.headdb.command.CommandHeadDB;
+import tsp.headdb.command.TabCompleterHeadDB;
 import tsp.headdb.database.DatabaseUpdateTask;
 import tsp.headdb.listener.JoinListener;
 import tsp.headdb.listener.MenuListener;
@@ -55,6 +56,7 @@ public class HeadDB extends JavaPlugin {
         new PagedPaneListener(this);
 
         getCommand("headdb").setExecutor(new CommandHeadDB());
+        getCommand("headdb").setTabCompleter(new TabCompleterHeadDB());
 
         Log.debug("Starting metrics...");
         new Metrics(this, 9152);
