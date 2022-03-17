@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import tsp.headdb.api.HeadAPI;
 import tsp.headdb.command.HeadDBCommand;
+import tsp.headdb.command.TabCompleterHeadDB;
 import tsp.headdb.economy.TreasuryProvider;
 import tsp.headdb.implementation.DataSaveTask;
 import tsp.headdb.implementation.DatabaseUpdateTask;
@@ -62,6 +63,7 @@ public class HeadDB extends JavaPlugin {
         new PagedPaneListener(this);
 
         getCommand("headdb").setExecutor(new HeadDBCommand());
+        getCommand("headdb").setTabCompleter(new TabCompleterHeadDB());
 
         Log.debug("Starting metrics...");
         initMetrics();
