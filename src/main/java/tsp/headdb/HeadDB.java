@@ -1,28 +1,32 @@
 package tsp.headdb;
 
-import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import tsp.headdb.api.HeadAPI;
-import tsp.headdb.command.CommandHeadDB;
-import tsp.headdb.command.TabCompleterHeadDB;
-import tsp.headdb.database.DatabaseUpdateTask;
+import tsp.headdb.command.HeadDBCommand;
+import tsp.headdb.economy.TreasuryProvider;
+import tsp.headdb.implementation.DataSaveTask;
+import tsp.headdb.implementation.DatabaseUpdateTask;
+import tsp.headdb.economy.BasicEconomyProvider;
+import tsp.headdb.economy.VaultProvider;
 import tsp.headdb.listener.JoinListener;
 import tsp.headdb.listener.MenuListener;
 import tsp.headdb.listener.PagedPaneListener;
 import tsp.headdb.storage.PlayerDataFile;
 import tsp.headdb.util.Localization;
 import tsp.headdb.util.Log;
-import tsp.headdb.util.Metrics;
+import tsp.headdb.util.Utils;
 
 import javax.annotation.Nullable;
 import java.io.File;
 
+/**
+ * Main class of HeadDB
+ */
 public class HeadDB extends JavaPlugin {
 
     private static HeadDB instance;
-    private Economy economy;
+    private BasicEconomyProvider economyProvider;
     private PlayerDataFile playerData;
     private Localization localization;
 
@@ -37,34 +41,44 @@ public class HeadDB extends JavaPlugin {
         this.playerData.load();
 
         if (getConfig().getBoolean("economy.enable")) {
-            Log.debug("Starting economy...");
-            this.economy = this.setupEconomy();
-            if (this.economy == null) {
-                Log.error("Economy support requires Vault and an economy provider plugin.");
-            } else {
-                Log.info("Economy provider: " + this.economy.getName());
+            String rawProvider = getConfig().getString("economy.provider", "VAULT");
+            Log.debug("Starting economy with provider: " + rawProvider);
+            if (rawProvider.equalsIgnoreCase("vault")) {
+                economyProvider = new VaultProvider();
+                economyProvider.initProvider();
+            } else if (rawProvider.equalsIgnoreCase("treasury")) {
+                economyProvider = new TreasuryProvider();
+                economyProvider.initProvider();
             }
         }
 
         long refresh = getConfig().getLong("refresh") * 20;
-        HeadAPI.getDatabase().updateAsync(heads -> Log.info("Fetched " + HeadAPI.getHeads().size() + " heads!")); // Update database on startup
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this, new DatabaseUpdateTask(), refresh, refresh); // Update database on set interval (also saves data)
         HeadAPI.getDatabase().setRefresh(refresh);
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, new DatabaseUpdateTask(), 0, refresh);
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, new DataSaveTask(), refresh, refresh);
 
         new JoinListener(this);
         new MenuListener(this);
         new PagedPaneListener(this);
 
-        getCommand("headdb").setExecutor(new CommandHeadDB());
-        getCommand("headdb").setTabCompleter(new TabCompleterHeadDB());
+        getCommand("headdb").setExecutor(new HeadDBCommand());
 
         Log.debug("Starting metrics...");
-        new Metrics(this, 9152);
+        initMetrics();
+
+        Utils.isLatestVersion(this, 84967, latest -> {
+            if (!latest) {
+                Log.warning("There is a new update available for HeadDB on spigot!");
+                Log.warning("Download: https://www.spigotmc.org/resources/84967");
+            }
+        });
+
         Log.info("Done!");
     }
 
     @Override
     public void onDisable() {
+        Bukkit.getScheduler().cancelTasks(this);
         this.playerData.save();
     }
 
@@ -72,26 +86,17 @@ public class HeadDB extends JavaPlugin {
         return localization;
     }
 
-    @Nullable
-    public Economy getEconomy() {
-        return economy;
-    }
-
     public PlayerDataFile getPlayerData() {
         return playerData;
     }
 
-    public static HeadDB getInstance() {
-        return instance;
+    @Nullable
+    public BasicEconomyProvider getEconomyProvider() {
+        return economyProvider;
     }
 
-    private Economy setupEconomy() {
-        if (!this.getServer().getPluginManager().isPluginEnabled("Vault")) return null;
-
-        RegisteredServiceProvider<Economy> economyProvider = this.getServer().getServicesManager().getRegistration(Economy.class);
-        if (economyProvider == null) return null;
-
-        return this.economy = economyProvider.getProvider();
+    public static HeadDB getInstance() {
+        return instance;
     }
 
     private void createLocalizationFile() {
@@ -103,6 +108,22 @@ public class HeadDB extends JavaPlugin {
 
         this.localization = new Localization(messagesFile);
         this.localization.load();
+    }
+
+    private void initMetrics() {
+        Metrics metrics = new Metrics(this, 9152);
+        if (!metrics.isEnabled()) {
+            Log.debug("Metrics are disabled.");
+            return;
+        }
+
+        metrics.addCustomChart(new Metrics.SimplePie("economy_provider", () -> {
+            if (this.getEconomyProvider() != null) {
+                return this.getConfig().getString("economy.provider");
+            }
+
+            return "None";
+        }));
     }
 
 

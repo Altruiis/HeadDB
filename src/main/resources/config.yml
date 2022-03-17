@@ -11,6 +11,12 @@ requireCategoryPermission: false
 # Economy options
 economy:
   enable: false
+  # Supported: VAULT, TREASURY
+  provider: "VAULT"
+  # Providers like treasury support multiple currencies
+  # Set the ID of the one used for head purchasing below.
+  # Leave empty to use the primary currency or if the provider does not support multiple currencies
+  currency: ''
   cost:
     alphabet: 100
     animals: 100
@@ -117,6 +123,10 @@ ui:
       name: BLOCK_ANVIL_BREAK
       volume: 1
       pitch: 1
+
+# If the original fetching fails and this is enabled,
+# the plugin will attempt to fetch the heads from an archive.
+fallback: true
 
 # Debug Mode
 debug: false
